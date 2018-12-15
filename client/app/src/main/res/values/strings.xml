@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">GlovoPlayground</string>
+    <string name="title_activity_maps">Map</string>
+    <string name="dialog_location_title">We want to know your location</string>
+    <string name="dialog_location_message">In order to give you useful information about your current position we need
+        you to allow the location permission. You can also choose any city from our coverage areas.
+    </string>
+</resources>
