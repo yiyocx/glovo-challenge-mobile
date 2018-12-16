@@ -13,6 +13,7 @@ import com.xwray.groupie.ViewHolder
 import io.reactivex.functions.Consumer
 import yiyo.com.glovoplayground.R
 import yiyo.com.glovoplayground.databinding.FragmentBottomSheetCountryListBinding
+import yiyo.com.glovoplayground.ui.items.CityItem
 import yiyo.com.glovoplayground.viewModels.MapsViewModel
 
 class CountryListBottomDialogFragment : BottomSheetDialogFragment() {
@@ -44,5 +45,11 @@ class CountryListBottomDialogFragment : BottomSheetDialogFragment() {
     private fun initRecyclerView() {
         binding.recyclerView.layoutManager = LinearLayoutManager(context)
         binding.recyclerView.adapter = adapter
+        adapter.setOnItemClickListener { item, _ ->
+            if (item is CityItem) {
+                viewModel.moveToCity(item.city.code)
+            }
+            dismiss()
+        }
     }
 }

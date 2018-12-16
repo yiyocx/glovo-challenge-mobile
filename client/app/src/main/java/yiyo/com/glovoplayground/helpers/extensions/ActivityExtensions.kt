@@ -1,4 +1,4 @@
-package yiyo.com.glovoplayground.helpers
+package yiyo.com.glovoplayground.helpers.extensions
 
 import android.app.Activity
 import android.content.pm.PackageManager
