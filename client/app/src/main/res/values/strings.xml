@@ -5,4 +5,5 @@
     <string name="dialog_location_message">In order to give you useful information about your current position we need
         you to allow the location permission. You can also choose any city from our coverage areas.
     </string>
+    <string name="please_select_a_city">Please Select a City</string>
 </resources>

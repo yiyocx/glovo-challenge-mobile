@@ -10,4 +10,5 @@
     <color name="secondaryTextColor">#000000</color>
 
     <color name="polygonColor">#55ff867f</color>
+    <color name="background">#F5F5F5</color>
 </resources>

@@ -13,6 +13,8 @@ import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.PolygonOptions
+import io.reactivex.functions.Action
 import io.reactivex.functions.Consumer
 import yiyo.com.glovoplayground.R
 import yiyo.com.glovoplayground.helpers.isPermissionGranted
@@ -25,6 +27,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private val fusedLocationClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
     private lateinit var viewModel: MapsViewModel
     private val polygonColor by lazy { ContextCompat.getColor(this, R.color.polygonColor) }
+    private val polygonStrokeColor by lazy { ContextCompat.getColor(this, R.color.secondaryColor) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,17 +44,17 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
         val permission = Manifest.permission.ACCESS_FINE_LOCATION
         if (isPermissionGranted(permission)) {
-            viewModel.loadCities(Consumer { polygonOptions ->
-                val polygon = map.addPolygon(polygonOptions)
-                polygon.fillColor = polygonColor
-            })
-            updateLocationUI()
+            onPermissionGranted()
         } else {
             requestPermission(
                 permission, getString(R.string.dialog_location_title),
                 getString(R.string.dialog_location_message), LOCATION_PERMISSIONS_REQUEST
-            ) { chooseCityManually() }
+            ) { onPermissionDenied() }
         }
+    }
+
+    private fun onPermissionGranted() {
+        viewModel.loadCities(drawPolygon(), Action { updateLocationUI() })
     }
 
     private fun updateLocationUI() {
@@ -75,15 +78,27 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         if (requestCode == LOCATION_PERMISSIONS_REQUEST) {
             grantResults.forEachIndexed { index, _ ->
                 when (grantResults[index]) {
-                    PackageManager.PERMISSION_GRANTED -> updateLocationUI()
-                    PackageManager.PERMISSION_DENIED -> chooseCityManually()
+                    PackageManager.PERMISSION_GRANTED -> onPermissionGranted()
+                    PackageManager.PERMISSION_DENIED -> onPermissionDenied()
                 }
             }
         }
     }
 
-    private fun chooseCityManually() {
-//        viewModel.loadCities()
+    private fun onPermissionDenied() {
+        viewModel.loadCities(drawPolygon(), Action {
+            val fragmentDialog = CountryListBottomDialogFragment.newInstance()
+            fragmentDialog.show(supportFragmentManager, CountryListBottomDialogFragment.TAG)
+        })
+    }
+
+    private fun drawPolygon(): Consumer<PolygonOptions> {
+        return Consumer { polygonOptions ->
+            val polygon = map.addPolygon(polygonOptions)
+            polygon.fillColor = polygonColor
+            polygon.strokeColor = polygonStrokeColor
+            polygon.strokeWidth = 5f
+        }
     }
 
     companion object {
