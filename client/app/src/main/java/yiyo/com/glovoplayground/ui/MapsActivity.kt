@@ -5,24 +5,31 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProviders
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import io.reactivex.functions.Consumer
 import yiyo.com.glovoplayground.R
 import yiyo.com.glovoplayground.helpers.isPermissionGranted
 import yiyo.com.glovoplayground.helpers.requestPermission
+import yiyo.com.glovoplayground.viewModels.MapsViewModel
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var map: GoogleMap
     private val fusedLocationClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
+    private lateinit var viewModel: MapsViewModel
+    private val polygonColor by lazy { ContextCompat.getColor(this, R.color.polygonColor) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
+        viewModel = ViewModelProviders.of(this)[MapsViewModel::class.java]
 
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
@@ -34,6 +41,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
         val permission = Manifest.permission.ACCESS_FINE_LOCATION
         if (isPermissionGranted(permission)) {
+            viewModel.loadCities(Consumer { polygonOptions ->
+                val polygon = map.addPolygon(polygonOptions)
+                polygon.fillColor = polygonColor
+            })
             updateLocationUI()
         } else {
             requestPermission(
@@ -72,7 +83,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun chooseCityManually() {
-        println("I will show countries with cities")
+//        viewModel.loadCities()
     }
 
     companion object {

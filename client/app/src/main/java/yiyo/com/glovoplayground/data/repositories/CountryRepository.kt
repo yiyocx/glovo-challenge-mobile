@@ -9,7 +9,7 @@ class CountryRepository {
 
     private val service = RetrofitBuilder.createService(CountriesService::class.java)
 
-    fun getCities(): Observable<List<Country>> {
+    fun getCountries(): Observable<List<Country>> {
         return service.getCountries()
     }
 }
