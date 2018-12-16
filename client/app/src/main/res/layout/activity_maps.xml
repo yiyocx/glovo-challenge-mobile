@@ -1,9 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
-<fragment xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    xmlns:map="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:id="@+id/map"
-    tools:context=".ui.MapsActivity"
-    android:name="com.google.android.gms.maps.SupportMapFragment"/>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        xmlns:app="http://schemas.android.com/apk/res-auto">
+    <data>
+        <variable
+                name="viewModel"
+                type="yiyo.com.glovoplayground.viewModels.MapsViewModel"/>
+    </data>
+
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+            <fragment
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:id="@+id/map"
+                    tools:context=".ui.MapsActivity"
+                    android:name="com.google.android.gms.maps.SupportMapFragment"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintBottom_toTopOf="@+id/guideline"/>
+
+            <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/informationPanel"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:cardBackgroundColor="@color/primaryColor"
+                    app:cardElevation="8dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintTop_toTopOf="@+id/guideline">
+
+                <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"/>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <androidx.constraintlayout.widget.Guideline
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:id="@+id/guideline"
+                    android:orientation="horizontal"
+                    app:layout_constraintGuide_percent="0.8"/>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical|start"
+                android:layout_margin="16dp"
+                android:src="@drawable/ic_round_world"
+                android:onClick="@{ () -> viewModel.showCityList() }"
+                app:layout_anchor="@id/informationPanel"
+                app:layout_anchorGravity="top|end"
+                app:fabSize="normal"/>
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+</layout>

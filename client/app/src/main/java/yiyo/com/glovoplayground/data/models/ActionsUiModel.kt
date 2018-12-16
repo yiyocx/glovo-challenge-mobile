@@ -5,4 +5,5 @@ import com.google.android.gms.maps.model.PolygonOptions
 
 sealed class ActionsUiModel {
     data class MoveToPosition(val position: LatLng, val polygon: PolygonOptions) : ActionsUiModel()
+    object ShowCityList : ActionsUiModel()
 }

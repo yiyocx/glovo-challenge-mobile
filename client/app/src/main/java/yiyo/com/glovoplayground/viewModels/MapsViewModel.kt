@@ -19,6 +19,7 @@ import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.PublishSubject
 import yiyo.com.glovoplayground.data.models.ActionsUiModel
 import yiyo.com.glovoplayground.data.models.ActionsUiModel.MoveToPosition
+import yiyo.com.glovoplayground.data.models.ActionsUiModel.ShowCityList
 import yiyo.com.glovoplayground.data.models.CityLite
 import yiyo.com.glovoplayground.data.models.Country
 import yiyo.com.glovoplayground.data.repositories.CityRepository
@@ -108,4 +109,6 @@ class MapsViewModel : ViewModel(), GoogleMap.OnMarkerClickListener {
         moveToCity(marker.snippet)
         return true
     }
+
+    fun showCityList() = actionsSubject.onNext(ShowCityList)
 }

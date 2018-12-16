@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.ViewModelProviders
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -24,6 +25,8 @@ import io.reactivex.schedulers.Schedulers
 import yiyo.com.glovoplayground.R
 import yiyo.com.glovoplayground.data.models.ActionsUiModel
 import yiyo.com.glovoplayground.data.models.ActionsUiModel.MoveToPosition
+import yiyo.com.glovoplayground.data.models.ActionsUiModel.ShowCityList
+import yiyo.com.glovoplayground.databinding.ActivityMapsBinding
 import yiyo.com.glovoplayground.helpers.extensions.isPermissionGranted
 import yiyo.com.glovoplayground.helpers.extensions.plusAssign
 import yiyo.com.glovoplayground.helpers.extensions.requestPermission
@@ -37,13 +40,16 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private val polygonColor by lazy { ContextCompat.getColor(this, R.color.polygonColor) }
     private val polygonStrokeColor by lazy { ContextCompat.getColor(this, R.color.secondaryColor) }
     private val compositeDisposable by lazy { CompositeDisposable() }
+    private val binding by lazy {
+        DataBindingUtil.setContentView<ActivityMapsBinding>(this, R.layout.activity_maps)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_maps)
         viewModel = ViewModelProviders.of(this)[MapsViewModel::class.java]
-        subscribeToActions()
+        binding.viewModel = viewModel
 
+        subscribeToActions()
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
@@ -58,12 +64,15 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun handleAction(action: ActionsUiModel) {
         when (action) {
-            is MoveToPosition -> {
-                val builder = LatLngBounds.Builder()
-                action.polygon.points.forEach { builder.include(it) }
-                map.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 50))
-            }
+            is MoveToPosition -> moveToPosition(action)
+            is ShowCityList -> showCityList()
         }
+    }
+
+    private fun moveToPosition(action: MoveToPosition) {
+        val builder = LatLngBounds.Builder()
+        action.polygon.points.forEach { builder.include(it) }
+        map.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 50))
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
@@ -78,7 +87,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             requestPermission(
                 permission, getString(R.string.dialog_location_title),
                 getString(R.string.dialog_location_message), LOCATION_PERMISSIONS_REQUEST
-            ) { onPermissionDenied() }
+                , onCancel = { onPermissionDenied() })
         }
     }
 
@@ -95,10 +104,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 if (task.isSuccessful) {
                     task.result?.let {
                         map.moveCamera(
-                            CameraUpdateFactory.newLatLngZoom(
-                                LatLng(it.latitude, it.longitude),
-                                ZOOM_LOCATE_USER
-                            )
+                            CameraUpdateFactory.newLatLngZoom(LatLng(it.latitude, it.longitude), ZOOM_LOCATE_USER)
                         )
                     }
                 }
@@ -120,10 +126,12 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun onPermissionDenied() {
-        viewModel.loadCities(drawPolygon(), Action {
-            val fragmentDialog = CountryListBottomDialogFragment.newInstance()
-            fragmentDialog.show(supportFragmentManager, CountryListBottomDialogFragment.TAG)
-        })
+        viewModel.loadCities(drawPolygon(), Action { showCityList() })
+    }
+
+    private fun showCityList() {
+        val fragmentDialog = CountryListBottomDialogFragment.newInstance()
+        fragmentDialog.show(supportFragmentManager, CountryListBottomDialogFragment.TAG)
     }
 
     private fun drawPolygon(): Consumer<Pair<MarkerOptions, PolygonOptions>> {
