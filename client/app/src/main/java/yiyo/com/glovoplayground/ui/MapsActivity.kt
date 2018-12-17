@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
@@ -13,14 +14,10 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.gms.maps.model.PolygonOptions
+import com.google.android.gms.maps.model.*
+import com.google.maps.android.PolyUtil
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.functions.Action
-import io.reactivex.functions.Consumer
 import io.reactivex.schedulers.Schedulers
 import yiyo.com.glovoplayground.R
 import yiyo.com.glovoplayground.data.models.ActionsUiModel
@@ -43,6 +40,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnCamera
         DataBindingUtil.setContentView<ActivityMapsBinding>(this, R.layout.activity_maps)
     }
     private val noCoverageMessage by lazy { resources.getString(R.string.out_of_coverage) }
+    private val markersByCity = hashMapOf<String, Marker>()
+    private val polygonsByCity = hashMapOf<String, Polygon>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,16 +63,20 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnCamera
 
     private fun handleAction(action: ActionsUiModel) {
         when (action) {
-            is MoveToPosition -> moveToPosition(action)
+            is DrawCitiesInfo -> drawMarkerAndPolygon(action.data)
+            is OnDrawCitiesComplete -> action.onComplete()
+            is MoveToCity -> moveToCity(action.cityCode)
             is ShowCityList -> showCityList()
             is ShowCityInfo -> viewModel.showCityInfo(action.city)
             is OutOfCoverage -> viewModel.onOutOfCoverage(noCoverageMessage)
+            is ShowError -> Toast.makeText(this, action.error.message, Toast.LENGTH_LONG).show()
         }
     }
 
-    private fun moveToPosition(action: MoveToPosition) {
+    private fun moveToCity(cityCode: String) {
         val builder = LatLngBounds.Builder()
-        action.polygon.points.forEach { builder.include(it) }
+        val polygon = polygonsByCity[cityCode]
+        polygon?.points?.forEach { builder.include(it) }
         map.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 50))
     }
 
@@ -95,7 +98,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnCamera
     }
 
     private fun onPermissionGranted() {
-        viewModel.loadCities(drawPolygon(), Action { updateLocationUI() })
+        viewModel.loadCities { updateLocationUI() }
     }
 
     private fun updateLocationUI() {
@@ -129,7 +132,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnCamera
     }
 
     private fun onPermissionDenied() {
-        viewModel.loadCities(drawPolygon(), Action { showCityList() })
+        viewModel.loadCities { showCityList() }
     }
 
     private fun showCityList() {
@@ -137,24 +140,39 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnCamera
         fragmentDialog.show(supportFragmentManager, CountryListBottomDialogFragment.TAG)
     }
 
-    private fun drawPolygon(): Consumer<Pair<MarkerOptions, PolygonOptions>> {
-        return Consumer { (marker, polygonOptions) ->
-            val polygon = map.addPolygon(polygonOptions)
-            polygon.fillColor = polygonColor
-            polygon.strokeColor = polygonStrokeColor
-            polygon.strokeWidth = 5f
+    private fun drawMarkerAndPolygon(data: Triple<String, MarkerOptions, PolygonOptions>) {
+        val (cityCode, markerOptions, polygonOptions) = data
 
-            map.addMarker(marker)
-        }
+        val polygon = map.addPolygon(polygonOptions)
+        polygon.fillColor = polygonColor
+        polygon.strokeColor = polygonStrokeColor
+        polygon.strokeWidth = 5f
+        polygonsByCity[cityCode] = polygon
+
+        val marker = map.addMarker(markerOptions)
+        markersByCity[cityCode] = marker
     }
 
     override fun onCameraIdle() {
+        val shouldShowMarkers = map.cameraPosition.zoom < ZOOM_SHOW_MARKERS
+        markersByCity.values.forEach { it.isVisible = shouldShowMarkers }
+        polygonsByCity.values.forEach { it.isVisible = !shouldShowMarkers }
+
         val currentPosition = map.cameraPosition.target
-        viewModel.onMapPositionChange(currentPosition)
+        val currentCityPolygon = polygonsByCity.asIterable()
+            .firstOrNull { (_, polygon) -> PolyUtil.containsLocation(currentPosition, polygon.points, false) }
+
+        if (currentCityPolygon != null) {
+            viewModel.onMapPositionChange(currentCityPolygon.key)
+        } else {
+            viewModel.onOutOfCoverage(noCoverageMessage)
+            viewModel.onOutOfCoverage(noCoverageMessage)
+        }
     }
 
     companion object {
         const val LOCATION_PERMISSIONS_REQUEST = 1
         const val ZOOM_LOCATE_USER = 15f
+        const val ZOOM_SHOW_MARKERS = 10f
     }
 }

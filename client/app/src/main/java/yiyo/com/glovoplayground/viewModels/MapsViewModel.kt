@@ -1,10 +1,8 @@
 package yiyo.com.glovoplayground.viewModels
 
-import android.util.Log
 import androidx.databinding.ObservableField
 import androidx.lifecycle.ViewModel
 import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PolygonOptions
@@ -14,7 +12,6 @@ import com.xwray.groupie.Section
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.functions.Action
 import io.reactivex.functions.BiFunction
 import io.reactivex.functions.Consumer
 import io.reactivex.schedulers.Schedulers
@@ -38,8 +35,6 @@ class MapsViewModel : ViewModel(), GoogleMap.OnMarkerClickListener {
     private val cityRepository by lazy { CityRepository() }
     private val compositeDisposable by lazy { CompositeDisposable() }
     private val cachedCities = mutableListOf<CityLite>()
-    private val markersByCity = hashMapOf<String, MarkerOptions>()
-    private val polygonsByCity = hashMapOf<String, PolygonOptions>()
 
     private val actionsSubject = PublishSubject.create<ActionsUiModel>()
 
@@ -48,21 +43,21 @@ class MapsViewModel : ViewModel(), GoogleMap.OnMarkerClickListener {
     val currentCityCurrency = ObservableField("")
     val currentCityTimezone = ObservableField("")
 
-    fun loadCities(onNext: Consumer<Pair<MarkerOptions, PolygonOptions>>, onComplete: Action = Action {}) {
+    fun loadCities(onComplete: () -> Unit = {}) {
         compositeDisposable += cityRepository.getCities()
             .doOnNext { cities -> cachedCities.addAll(cities) }
             .flatMap { cities -> Observable.fromIterable(cities) }
             .map { city -> buildMarkerPolygon(city) }
-            .doOnNext { (marker, polygon) ->
-                markersByCity[marker.snippet] = marker
-                polygonsByCity[marker.snippet] = polygon
-            }
+            .map { DrawCitiesInfo(it) }
             .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(onNext, Consumer { Log.e("MapsViewModel", it.message) }, onComplete)
+            .subscribe(
+                { actionsSubject.onNext(it) },
+                { actionsSubject.onNext(ShowError(it)) },
+                { actionsSubject.onNext(OnDrawCitiesComplete(onComplete)) }
+            )
     }
 
-    private fun buildMarkerPolygon(city: CityLite): Pair<MarkerOptions, PolygonOptions> {
+    private fun buildMarkerPolygon(city: CityLite): Triple<String, MarkerOptions, PolygonOptions> {
         val points = city.workingArea
             .filter { it.isNotBlank() }
             .map { encodedPolygon -> PolygonOptions().addAll(PolyUtil.decode(encodedPolygon)) }
@@ -75,7 +70,7 @@ class MapsViewModel : ViewModel(), GoogleMap.OnMarkerClickListener {
         marker.snippet(city.code)
         marker.position(simplifiedPolygon.getCenter())
 
-        return Pair(marker, simplifiedPolygon)
+        return Triple(city.code, marker, simplifiedPolygon)
     }
 
     fun loadFullCountries(action: Consumer<List<ExpandableGroup>>) {
@@ -104,11 +99,7 @@ class MapsViewModel : ViewModel(), GoogleMap.OnMarkerClickListener {
     fun observeActions(): Observable<ActionsUiModel> = actionsSubject.hide()
 
     fun moveToCity(cityCode: String) {
-        val marker = markersByCity[cityCode]
-        val polygon = polygonsByCity[cityCode]
-        if (marker != null && polygon != null) {
-            actionsSubject.onNext(MoveToPosition(marker.position, polygon))
-        }
+        actionsSubject.onNext(MoveToCity(cityCode))
     }
 
     override fun onMarkerClick(marker: Marker): Boolean {
@@ -119,18 +110,12 @@ class MapsViewModel : ViewModel(), GoogleMap.OnMarkerClickListener {
 
     fun showCityList() = actionsSubject.onNext(ShowCityList)
 
-    fun onMapPositionChange(currentPosition: LatLng) {
-        val currentCityPolygon = polygonsByCity.asIterable()
-            .firstOrNull { (_, polygon) -> PolyUtil.containsLocation(currentPosition, polygon.points, false) }
-
-        if (currentCityPolygon != null) {
-            compositeDisposable += cityRepository.getCityDetail(currentCityPolygon.key)
-                .map { ShowCityInfo(it) }
-                .subscribeOn(Schedulers.io())
-                .subscribe { actionsSubject.onNext(it) }
-        } else {
-            actionsSubject.onNext(OutOfCoverage)
-        }
+    fun onMapPositionChange(cityCode: String) {
+        compositeDisposable += cityRepository.getCityDetail(cityCode)
+            .map<ActionsUiModel> { ShowCityInfo(it) }
+            .onErrorReturn { ShowError(it) }
+            .subscribeOn(Schedulers.io())
+            .subscribe { actionsSubject.onNext(it) }
     }
 
     fun showCityInfo(city: City) {
