@@ -76,8 +76,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnCamera
     private fun moveToCity(cityCode: String) {
         val builder = LatLngBounds.Builder()
         val polygon = polygonsByCity[cityCode]
-        polygon?.points?.forEach { builder.include(it) }
-        map.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 50))
+        polygon?.let {
+            it.points.forEach { builder.include(it) }
+            map.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 50))
+        }
+
     }
 
     override fun onMapReady(googleMap: GoogleMap) {

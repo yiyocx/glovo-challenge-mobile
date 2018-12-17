@@ -10,10 +10,8 @@ import com.google.maps.android.PolyUtil
 import com.xwray.groupie.ExpandableGroup
 import com.xwray.groupie.Section
 import io.reactivex.Observable
-import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.functions.BiFunction
-import io.reactivex.functions.Consumer
 import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.PublishSubject
 import yiyo.com.glovoplayground.data.models.ActionsUiModel
@@ -73,8 +71,17 @@ class MapsViewModel : ViewModel(), GoogleMap.OnMarkerClickListener {
         return Triple(city.code, marker, simplifiedPolygon)
     }
 
-    fun loadFullCountries(action: Consumer<List<ExpandableGroup>>) {
-        compositeDisposable += Observable.combineLatest(countryRepository.getCountries(),
+    fun loadFullCountries() {
+        if (cachedCities.isEmpty()) {
+            loadCities { mergeCountriesAndCities() }
+        } else {
+            mergeCountriesAndCities()
+        }
+    }
+
+    private fun mergeCountriesAndCities() {
+        compositeDisposable += Observable.combineLatest(
+            countryRepository.getCountries(),
             Observable.fromArray(cachedCities),
             BiFunction { countries: List<Country>, cities: List<CityLite> ->
                 val citiesByCountry = cities.groupBy { it.countryCode }
@@ -91,9 +98,10 @@ class MapsViewModel : ViewModel(), GoogleMap.OnMarkerClickListener {
                     }
                 }
             }
+            .map<ActionsUiModel> { CountryList(it) }
+            .onErrorReturn { ShowError(it) }
             .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(action)
+            .subscribe { actionsSubject.onNext(it) }
     }
 
     fun observeActions(): Observable<ActionsUiModel> = actionsSubject.hide()
