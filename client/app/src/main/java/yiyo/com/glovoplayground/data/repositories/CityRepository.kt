@@ -14,7 +14,7 @@ class CityRepository {
         return service.getCities()
     }
 
-    fun getCity(cityCode: String): Observable<City> {
+    fun getCityDetail(cityCode: String): Observable<City> {
         return service.getCity(cityCode)
     }
 }

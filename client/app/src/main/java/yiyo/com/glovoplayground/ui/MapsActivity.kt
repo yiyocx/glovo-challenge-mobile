@@ -24,15 +24,14 @@ import io.reactivex.functions.Consumer
 import io.reactivex.schedulers.Schedulers
 import yiyo.com.glovoplayground.R
 import yiyo.com.glovoplayground.data.models.ActionsUiModel
-import yiyo.com.glovoplayground.data.models.ActionsUiModel.MoveToPosition
-import yiyo.com.glovoplayground.data.models.ActionsUiModel.ShowCityList
+import yiyo.com.glovoplayground.data.models.ActionsUiModel.*
 import yiyo.com.glovoplayground.databinding.ActivityMapsBinding
 import yiyo.com.glovoplayground.helpers.extensions.isPermissionGranted
 import yiyo.com.glovoplayground.helpers.extensions.plusAssign
 import yiyo.com.glovoplayground.helpers.extensions.requestPermission
 import yiyo.com.glovoplayground.viewModels.MapsViewModel
 
-class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
+class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnCameraIdleListener {
 
     private lateinit var map: GoogleMap
     private val fusedLocationClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
@@ -43,6 +42,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private val binding by lazy {
         DataBindingUtil.setContentView<ActivityMapsBinding>(this, R.layout.activity_maps)
     }
+    private val noCoverageMessage by lazy { resources.getString(R.string.out_of_coverage) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,6 +66,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         when (action) {
             is MoveToPosition -> moveToPosition(action)
             is ShowCityList -> showCityList()
+            is ShowCityInfo -> viewModel.showCityInfo(action.city)
+            is OutOfCoverage -> viewModel.onOutOfCoverage(noCoverageMessage)
         }
     }
 
@@ -79,6 +81,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         map = googleMap
         map.uiSettings.isMapToolbarEnabled = false
         map.setOnMarkerClickListener(viewModel)
+        map.setOnCameraIdleListener(this)
 
         val permission = Manifest.permission.ACCESS_FINE_LOCATION
         if (isPermissionGranted(permission)) {
@@ -143,6 +146,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
             map.addMarker(marker)
         }
+    }
+
+    override fun onCameraIdle() {
+        val currentPosition = map.cameraPosition.target
+        viewModel.onMapPositionChange(currentPosition)
     }
 
     companion object {

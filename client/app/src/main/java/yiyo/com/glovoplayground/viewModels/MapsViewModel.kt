@@ -1,8 +1,10 @@
 package yiyo.com.glovoplayground.viewModels
 
 import android.util.Log
+import androidx.databinding.ObservableField
 import androidx.lifecycle.ViewModel
 import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PolygonOptions
@@ -18,8 +20,8 @@ import io.reactivex.functions.Consumer
 import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.PublishSubject
 import yiyo.com.glovoplayground.data.models.ActionsUiModel
-import yiyo.com.glovoplayground.data.models.ActionsUiModel.MoveToPosition
-import yiyo.com.glovoplayground.data.models.ActionsUiModel.ShowCityList
+import yiyo.com.glovoplayground.data.models.ActionsUiModel.*
+import yiyo.com.glovoplayground.data.models.City
 import yiyo.com.glovoplayground.data.models.CityLite
 import yiyo.com.glovoplayground.data.models.Country
 import yiyo.com.glovoplayground.data.repositories.CityRepository
@@ -40,6 +42,11 @@ class MapsViewModel : ViewModel(), GoogleMap.OnMarkerClickListener {
     private val polygonsByCity = hashMapOf<String, PolygonOptions>()
 
     private val actionsSubject = PublishSubject.create<ActionsUiModel>()
+
+    val currentCityName = ObservableField("")
+    val currentCityLanguage = ObservableField("")
+    val currentCityCurrency = ObservableField("")
+    val currentCityTimezone = ObservableField("")
 
     fun loadCities(onNext: Consumer<Pair<MarkerOptions, PolygonOptions>>, onComplete: Action = Action {}) {
         compositeDisposable += cityRepository.getCities()
@@ -111,4 +118,34 @@ class MapsViewModel : ViewModel(), GoogleMap.OnMarkerClickListener {
     }
 
     fun showCityList() = actionsSubject.onNext(ShowCityList)
+
+    fun onMapPositionChange(currentPosition: LatLng) {
+        val currentCityPolygon = polygonsByCity.asIterable()
+            .firstOrNull { (_, polygon) -> PolyUtil.containsLocation(currentPosition, polygon.points, false) }
+
+        if (currentCityPolygon != null) {
+            compositeDisposable += cityRepository.getCityDetail(currentCityPolygon.key)
+                .map { ShowCityInfo(it) }
+                .subscribeOn(Schedulers.io())
+                .subscribe { actionsSubject.onNext(it) }
+        } else {
+            actionsSubject.onNext(OutOfCoverage)
+        }
+    }
+
+    fun showCityInfo(city: City) {
+        with(city) {
+            currentCityName.set(name)
+            currentCityLanguage.set(languageCode)
+            currentCityCurrency.set(currency)
+            currentCityTimezone.set(timeZone)
+        }
+    }
+
+    fun onOutOfCoverage(message: String) {
+        currentCityName.set(message)
+        currentCityLanguage.set(message)
+        currentCityCurrency.set(message)
+        currentCityTimezone.set(message)
+    }
 }

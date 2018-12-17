@@ -6,4 +6,5 @@
         you to allow the location permission. You can also choose any city from our coverage areas.
     </string>
     <string name="please_select_a_city">Please Select a City</string>
+    <string name="out_of_coverage">Outside of working area</string>
 </resources>
