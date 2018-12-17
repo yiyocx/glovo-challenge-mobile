@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import yiyo.com.glovoplayground.R
 
 fun Activity.isPermissionGranted(permission: String): Boolean {
     return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
@@ -22,14 +23,14 @@ fun Activity.requestPermission(
             .setTitle(title)
             .setMessage(message)
             .setCancelable(false)
-            .setPositiveButton("Yes") { _, _ ->
+            .setPositiveButton(getString(R.string.allow)) { _, _ ->
                 ActivityCompat.requestPermissions(
                     this,
                     arrayOf(permission),
                     requestCode
                 )
             }
-            .setNegativeButton("No") { dialog, _ ->
+            .setNegativeButton(getString(R.string.cancel)) { dialog, _ ->
                 dialog.dismiss()
                 onCancel.invoke()
             }

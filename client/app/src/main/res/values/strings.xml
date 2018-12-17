@@ -7,4 +7,6 @@
     </string>
     <string name="please_select_a_city">Please Select a City</string>
     <string name="out_of_coverage">Outside of working area</string>
+    <string name="allow">Continue</string>
+    <string name="cancel">Cancel</string>
 </resources>
